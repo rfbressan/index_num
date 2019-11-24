@@ -19,7 +19,7 @@ Instalar o seguinte pacote `install.packages("pacman")`.
 Agora com este pacote instalado é possível carregar os demais que, se não estiverem instalados, serão baixados e carregados automaticamente.
 
 ```{r pacotes}
-pacman::p_load(lubridate, tidyverse)
+pacman::p_load(lubridate, tidyverse, ggthemes)
 ```
 
 ## Lendo Arquivo de Dados
@@ -171,5 +171,115 @@ ipca_metas %>%
        y = "% a.a.") +
   guides(color = guide_legend(title = "")) +
   scale_color_viridis_d() +
-  theme_classic()
+  theme_economist()
 ```
+
+## Exercícios
+
+1. Ler o arquivo com as séries de PIB (tabela1620.csv)
+
+```{r tab-pib, cache=TRUE, include=FALSE}
+pib <- read_csv2("../Data/tabela1620.csv", 
+                  col_names = c("trimestre", "agro", "industria", 
+                                "servicos", "PIB"),
+                  skip = 5, n_max = 94)
+head(pib)
+tail(pib)
+summary(pib)
+```
+
+1.1 Fazer o tratamento dos dados para constar em colunas separadas o trimestre e o ano.
+
+```{r trimestre, include=FALSE}
+pib_tri_ano <- pib %>%
+  separate(trimestre, into = c("tri", "ano"), sep = "mestre ") %>% 
+  mutate(ano = as.numeric(ano))
+```
+
+1.2 Calcular a variação percentual trimestral para cada índice, **mantendo tudo no mesmo DataFrame**. (Dica: utilize uma combinação de pivot_longer e group_by) 
+
+```{r var-tri, include=FALSE}
+pib_tri_ano <- pib_tri_ano %>% 
+  pivot_longer(-c(tri, ano)) %>% 
+  group_by(name) %>% 
+  mutate(var_tri = 100*((value - lag(value, 1))/lag(value, 1)))
+head(pib_tri_ano)
+```
+
+1.3 Encontre a maior variação percentual para cada série, em qual trimestre do ano foi o ocorrido? (Dica: filtre o DataFrame para as linhas que contém os valores máximos)
+
+```{r suma, include=FALSE}
+suma <- pib_tri_ano %>% 
+  filter(var_tri == max(var_tri, na.rm = TRUE))
+suma
+```
+
+2. Calcule a variação percentual acumulada de 12 meses para cada índice e a variação do ano.
+
+```{r var_12m, include=FALSE}
+pib_tri_ano <- pib_tri_ano %>% 
+  mutate(var_12m = 100*((value - lag(value, 4))/lag(value, 4))) %>% 
+  group_by(name, ano) %>% 
+  mutate(var_ano = 100*(cumprod(1 + var_tri / 100) - 1))
+```
+
+2.1 Plote a variação percentual trimestral do PIB na forma de série de barras, utilizando o ggplot.
+
+```{r plot-barras, include=FALSE}
+pib_tri <- pib_tri_ano %>% 
+  ungroup() %>% 
+  filter(name == "PIB") %>% 
+  select(-c(var_12m, var_ano)) %>% 
+  na.omit() %>% 
+  mutate(data = seq(as.Date("1996-03-01"), by = "quarter", length.out = 93))
+
+pib_tri %>% 
+  ggplot(aes(x = data, y = var_tri)) +
+  geom_bar(stat = 'identity', fill = "blue") +
+  scale_x_date(date_breaks = "2 years", date_labels = "%Y") +
+  theme_economist()
+```
+
+## Referências
+
+A RStudio (é uma empresa e o próprio nome do ambiente de desenvolvimento) oferece vários recursos abordando diversos temas. São sugeridos os seguintes: 
+
+- [RStudio learn](https://education.rstudio.com/learn/)
+- [RStudio webinars](https://resources.rstudio.com/)
+
+- Essenciais
+    - [Programming](https://www.rstudio.com/resources/webinars/rstudio-essentials-webinar-series-part-1/)
+    - [Managing Change 1](https://www.rstudio.com/resources/webinars/rstudio-essentials-webinar-series-managing-change-part-1/)
+    - [Managing Change 2](https://www.rstudio.com/resources/webinars/rstudio-essentials-webinar-series-managing-part-2/)
+    - [Importing Data](https://www.rstudio.com/resources/webinars/importing-data-into-r/)
+    
+- Data Science
+    - [Tidyverse](https://www.rstudio.com/resources/videos/data-science-in-the-tidyverse/)
+    - [Data Wrangling](https://www.rstudio.com/resources/webinars/data-wrangling-with-r-and-rstudio/)
+    - [Reporting](https://www.rstudio.com/resources/webinars/reproducible-reporting/)
+    - [Inside the Box](https://www.rstudio.com/resources/webinars/thinking-inside-the-box-you-can-do-that-inside-a-data-frame/)
+    - [Purr Tutorial](https://www.rstudio.com/resources/videos/happy-r-users-purrr/)
+    - [List Columns](https://www.rstudio.com/resources/videos/using-list-cols-in-your-dataframe/)
+
+- Tidyverse
+    - [Tidyquant](https://www.rstudio.com/resources/videos/the-future-of-time-series-and-financial-analysis-in-the-tidyverse/)
+    - [Lesser Known](https://www.rstudio.com/resources/videos/the-lesser-known-stars-of-the-tidyverse/)
+    
+- Livros
+
+- [Proc. Análise Dados Financeiros](http://www.msperlin.com/padfeR/)
+- [R for Data Science](http://r4ds.had.co.nz/index.html)
+- [Bookdown](https://bookdown.org/yihui/bookdown/)
+
+- Outros links
+
+- [Tidyverse](https://www.tidyverse.org/)
+- [Tidyquant](https://business-science.github.io/tidyquant/)
+- [Code School](http://tryr.codeschool.com/)
+- [RStudio Cheat Sheets](https://www.rstudio.com/resources/cheatsheets/)
+- [R-bloggers](https://www.r-bloggers.com/)
+- [r-statistics](http://r-statistics.co/)
+- [Purr lessons](https://jennybc.github.io/purrr-tutorial/)
+- [Data Science+](https://datascienceplus.com/)
+- [Eric Zivot](http://faculty.washington.edu/ezivot/classes.htm)
+- [QRM Tutorial](http://www.qrmtutorial.org/)
