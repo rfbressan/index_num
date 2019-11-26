@@ -1,0 +1,238 @@
+---
+title: "Números Índice"
+author: "Rafael F. Bressan"
+date: "`r format(Sys.Date(), format = '%d/%m/%Y')`"
+output: 
+  html_document:
+    theme: readable
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Instalando e Carregando Pacotes
+
+Instalar o seguinte pacote `install.packages("pacman")`.
+
+Agora com este pacote instalado é possível carregar os demais que, se não estiverem instalados, serão baixados e carregados automaticamente.
+
+```{r pacotes}
+pacman::p_load(lubridate, tidyverse, ggthemes)
+```
+
+## Lendo Arquivo de Dados
+
+Nosso arquivo de dados chama-se `tabela1419.csv` e foi baixada diretamente do [SIDRA](https://sidra.ibge.gov.br/tabela/1419). Vamos ler este arquivo e carregá-lo em um DataFrame do R.
+
+```{r tab-ipca, cache=TRUE}
+ipca <- read_csv2("../Data/tabela1419.csv", 
+                  col_names = c("regiao", "mes_ano", "var_mensal"),
+                  skip = 4, n_max = 94)
+head(ipca)
+tail(ipca)
+summary(ipca)
+```
+
+## Tratamento dos Dados
+
+Precisamos criar a partir da coluna `mes_ano` uma outra em formato de data. Usaremos o pacote `tidyr` para tanto.
+
+```{r mes-ano}
+ipca_mes_ano <- ipca %>%
+  separate(mes_ano, into = c("mes", "ano"), sep = " ") %>% 
+  mutate(ano = as.numeric(ano))
+head(ipca_mes_ano)
+```
+
+### IPCA acumulado
+
+Vamos criar o número índice acumulado desde o mês anterior ao primeiro da série.
+
+```{r acumulado}
+ipca_mes_ano <- ipca_mes_ano %>% 
+  mutate(indice_ac = 100 * cumprod(1 + var_mensal / 100))
+```
+
+### Troca de base
+
+Podemos trocar a base da série, por exemplo, deseja-se que o índice de março de 2015 seja a base = 100. Criaremos uma **função** de troca de base. Esta função receberá o DataFrame como primeiro argumento, o mês e o ano para a base e retornará o DataFrame com os valores de `indice_ac` alterados.
+
+```{r troca-base}
+troca_base <- function(df, mes_base, ano_base) {
+  indice_base <- df %>% 
+    filter(mes == mes_base & ano == ano_base) %>% 
+    pull(indice_ac)
+  
+  fator <- 100 / indice_base
+  
+  ans <- df %>% 
+    mutate(indice_ac = fator * indice_ac)
+  
+  return(ans)
+}
+```
+
+E agora vamos testar a troca de base.
+
+```{r teste-troca}
+ipca_trocado <- troca_base(ipca_mes_ano, "março", 2015)
+head(ipca_trocado)
+```
+
+### IPCA acumulado em 12 meses
+
+```{r acumulado12m}
+ipca_mes_ano_12m <- ipca_mes_ano %>% 
+  mutate(var_12m = ((indice_ac / lag(indice_ac, 12)) - 1) * 100)
+```
+
+O 12º mês recebe um tratamento de exceção, uma vez que a base é no mês de dezembro de 2011 e a deixamos implícita. A variação acumulada em 12 meses em dezembro de 2012 é o próprio índice acumulado.
+
+```{r dez12}
+ipca_mes_ano_12m$var_12m[12] <- ipca_mes_ano_12m$indice_ac[12] - 100
+```
+
+### IPCA acumulado no ano corrente
+
+Para acumular o índice somente durante o ano corrente vamos utilizar a função `group_by` do pacote `dplyr`. Uma vez o DataFrame agrupado pela coluna `ano`, as transformações do `mutate` serão realizadas para cada grupo.
+
+```{r acumulado_ano}
+ipca_corrente <- ipca_mes_ano_12m %>% 
+  group_by(ano) %>% 
+  mutate(var_ano = 100*(cumprod(1 + var_mensal / 100) - 1))
+```
+
+## Gráficos
+
+Para fazer gráficos no R o melhor pacote é o `ggplot`. Como ele é possível criar o gráfico "por partes", especificando cada elemento que o compõe.
+
+Vamos plotar a série do IPCA acumulado nos últimos 12 meses. Antes de fazer o gráfico, temos de criar uma coluna em formato de data, que será melhor interpretada pelo `ggplot` para o eixo temporal.
+
+```{r add_date}
+ipca_mes_ano_12m$data <- seq(as.Date("2012-01-01"), by = "month", length.out = 94)
+```
+
+```{r plot}
+ipca_mes_ano_12m %>% 
+  na.omit() %>% 
+  ggplot(aes(x = data, y = var_12m)) +
+  geom_line() +
+  labs(title = "IPCA 12 meses (pontos percentuais)",
+       x = "Data",
+       y = "% a.a.") +
+  scale_color_viridis_c() +
+  theme_classic()
+```
+
+### Incluindo as metas de inflação
+
+Vamos ler o arquivo com as metas de inflação.
+
+```{r read-metas, cache=TRUE}
+metas <- read_csv2("../Data/meta_inflacao.csv")
+head(metas)
+tail(metas)
+summary(metas)
+```
+
+As datas foram lidas como caracter. Vamos fazer o mesmo procedimento de antes e incluir uma coluna chamada `data` no DataFrame metas.
+
+```{r data_metas}
+metas$data <- seq(as.Date("2012-01-01"), by = "month", length.out = 94)
+metas$X1 <- NULL # Apaga a coluna
+```
+
+Agora podemos fazer um `inner_join` (merge) entre os DataFrames ipca_mes_ano_12m e metas. 
+
+```{r join}
+ipca_mes_ano_12m <- ipca_mes_ano_12m %>% 
+  inner_join(metas, by = "data")
+```
+
+E para plotar todas as séries, ipca_12m, meta e limites inferior e superior no mesmo gráfico vamos transformar o DataFrame para formato "longo".
+
+```{r pivot}
+ipca_metas <- ipca_mes_ano_12m %>% 
+  na.omit() %>% 
+  select(data, var_12m, meta, inferior, superior) %>% 
+  pivot_longer(-data)
+
+head(ipca_metas)
+```
+
+```{r plot_metas}
+ipca_metas %>% 
+  ggplot(aes(x = data, y = value, color = name)) +
+  geom_line() +
+  labs(title = "IPCA 12 meses (pontos percentuais)",
+       x = "Data",
+       y = "% a.a.") +
+  guides(color = guide_legend(title = "")) +
+  scale_color_viridis_d() +
+  theme_economist()
+```
+
+## Exercícios
+
+1. Ler o arquivo com as séries de PIB (tabela1620.csv)
+
+
+1.1 Fazer o tratamento dos dados para constar em colunas separadas o trimestre e o ano.
+
+
+1.2 Calcular a variação percentual trimestral para cada índice, **mantendo tudo no mesmo DataFrame**. (Dica: utilize uma combinação de pivot_longer e group_by) 
+
+
+1.3 Encontre a maior variação percentual para cada série, em qual trimestre do ano foi o ocorrido? (Dica: filtre o DataFrame para as linhas que contém os valores máximos)
+
+
+2. Calcule a variação percentual acumulada de 12 meses para cada índice e a variação do ano.
+
+
+2.1 Plote a variação percentual trimestral do PIB na forma de série de barras, utilizando o ggplot.
+
+
+## Referências
+
+A RStudio (é uma empresa e o próprio nome do ambiente de desenvolvimento) oferece vários recursos abordando diversos temas. São sugeridos os seguintes: 
+
+- [RStudio learn](https://education.rstudio.com/learn/)
+- [RStudio webinars](https://resources.rstudio.com/)
+
+- Essenciais
+    - [Programming](https://www.rstudio.com/resources/webinars/rstudio-essentials-webinar-series-part-1/)
+    - [Managing Change 1](https://www.rstudio.com/resources/webinars/rstudio-essentials-webinar-series-managing-change-part-1/)
+    - [Managing Change 2](https://www.rstudio.com/resources/webinars/rstudio-essentials-webinar-series-managing-part-2/)
+    - [Importing Data](https://www.rstudio.com/resources/webinars/importing-data-into-r/)
+    
+- Data Science
+    - [Tidyverse](https://resources.rstudio.com/tidyverse)
+    - [Data Wrangling](https://www.rstudio.com/resources/webinars/data-wrangling-with-r-and-rstudio/)
+    - [Reporting](https://www.rstudio.com/resources/webinars/reproducible-reporting/)
+    - [Inside the Box](https://www.rstudio.com/resources/webinars/thinking-inside-the-box-you-can-do-that-inside-a-data-frame/)
+    - [Purr Tutorial](https://resources.rstudio.com/rstudio-conf-2017/happy-r-users-purrr-tutorial-charlotte-wickham)
+    - [List Columns](https://resources.rstudio.com/webinars/how-to-work-with-list-columns-garrett-grolemund)
+
+- Tidyverse
+    - [Tidy Time Series](https://slides.earo.me/rstudioconf19/#1)
+    - [Lesser Known](https://resources.rstudio.com/rstudio-conf-2018/the-lesser-known-stars-of-the-tidyverse-emily-robinson)
+    
+- Livros
+
+- [Proc. Análise Dados Financeiros](http://www.msperlin.com/padfeR/)
+- [R for Data Science](http://r4ds.had.co.nz/index.html)
+- [Bookdown](https://bookdown.org/)
+
+- Outros links
+
+- [Tidyverse](https://www.tidyverse.org/)
+- [Tidyquant](https://business-science.github.io/tidyquant/)
+- [RStudio Cheat Sheets](https://www.rstudio.com/resources/cheatsheets/)
+- [R-bloggers](https://www.r-bloggers.com/)
+- [r-statistics](http://r-statistics.co/)
+- [Purr lessons](https://jennybc.github.io/purrr-tutorial/)
+- [Data Science+](https://datascienceplus.com/)
+- [Eric Zivot](http://faculty.washington.edu/ezivot/econ589/589syllabus.htm)
+- [QRM Tutorial](http://www.qrmtutorial.org/)
