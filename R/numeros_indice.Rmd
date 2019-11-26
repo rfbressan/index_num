@@ -254,32 +254,31 @@ A RStudio (é uma empresa e o próprio nome do ambiente de desenvolvimento) ofer
     - [Importing Data](https://www.rstudio.com/resources/webinars/importing-data-into-r/)
     
 - Data Science
-    - [Tidyverse](https://www.rstudio.com/resources/videos/data-science-in-the-tidyverse/)
+    - [Tidyverse](https://resources.rstudio.com/tidyverse)
     - [Data Wrangling](https://www.rstudio.com/resources/webinars/data-wrangling-with-r-and-rstudio/)
     - [Reporting](https://www.rstudio.com/resources/webinars/reproducible-reporting/)
     - [Inside the Box](https://www.rstudio.com/resources/webinars/thinking-inside-the-box-you-can-do-that-inside-a-data-frame/)
-    - [Purr Tutorial](https://www.rstudio.com/resources/videos/happy-r-users-purrr/)
-    - [List Columns](https://www.rstudio.com/resources/videos/using-list-cols-in-your-dataframe/)
+    - [Purr Tutorial](https://resources.rstudio.com/rstudio-conf-2017/happy-r-users-purrr-tutorial-charlotte-wickham)
+    - [List Columns](https://resources.rstudio.com/webinars/how-to-work-with-list-columns-garrett-grolemund)
 
 - Tidyverse
-    - [Tidyquant](https://www.rstudio.com/resources/videos/the-future-of-time-series-and-financial-analysis-in-the-tidyverse/)
-    - [Lesser Known](https://www.rstudio.com/resources/videos/the-lesser-known-stars-of-the-tidyverse/)
+    - [Tidy Time Series](https://slides.earo.me/rstudioconf19/#1)
+    - [Lesser Known](https://resources.rstudio.com/rstudio-conf-2018/the-lesser-known-stars-of-the-tidyverse-emily-robinson)
     
 - Livros
 
 - [Proc. Análise Dados Financeiros](http://www.msperlin.com/padfeR/)
 - [R for Data Science](http://r4ds.had.co.nz/index.html)
-- [Bookdown](https://bookdown.org/yihui/bookdown/)
+- [Bookdown](https://bookdown.org/)
 
 - Outros links
 
 - [Tidyverse](https://www.tidyverse.org/)
 - [Tidyquant](https://business-science.github.io/tidyquant/)
-- [Code School](http://tryr.codeschool.com/)
 - [RStudio Cheat Sheets](https://www.rstudio.com/resources/cheatsheets/)
 - [R-bloggers](https://www.r-bloggers.com/)
 - [r-statistics](http://r-statistics.co/)
 - [Purr lessons](https://jennybc.github.io/purrr-tutorial/)
 - [Data Science+](https://datascienceplus.com/)
-- [Eric Zivot](http://faculty.washington.edu/ezivot/classes.htm)
+- [Eric Zivot](http://faculty.washington.edu/ezivot/econ589/589syllabus.htm)
 - [QRM Tutorial](http://www.qrmtutorial.org/)
